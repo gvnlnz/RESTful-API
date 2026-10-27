@@ -1,0 +1,53 @@
+services:
+  # --- node based app ---
+  app:
+    container_name: ${APP_NAME:-err}-app
+    build:
+      context: ./backend/
+      dockerfile: Dockerfile
+    restart: 'unless-stopped'
+    environment:
+      - PORT=${APP_PORT}
+      - DB_HOST=mysql # service name: containers reach each other by name, not 127.0.0.1
+      - DB_USER=${DB_USER}
+      - DB_NAME=${DB_NAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_PORT=${DB_PORT}
+      - JWT_SECRET=${JWT_SECRET}
+    ports:
+      - "127.0.0.1:${APP_PORT}:${APP_PORT}"
+    develop:
+      watch:
+        - action: sync+restart        # copy the file and restart the process
+          path: ./backend
+          target: /usr/src/app
+          ignore:
+            - node_modules/
+        - action: rebuild             # package.json changes -> new image
+          path: ./backend/package.json
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # --- mysql database ---
+  mysql:
+    container_name: ${APP_NAME:-err}-mysql
+    image: mysql:latest
+    restart: 'unless-stopped'
+    environment:
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_DATABASE=${DB_NAME}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # .sql files here are run automatically on first init (empty volume only)
+      - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+volumes:
+  mysql_data:

@@ -1,0 +1,14 @@
+# node dependecies (installed by the Dockerfile)
+node_modules
+npm-debug.log*
+
+# secrets
+.env*
+
+# docker and git files
+.gitignore
+.dockerignore
+Dockerfile
+
+# system files
+.DS_Store
